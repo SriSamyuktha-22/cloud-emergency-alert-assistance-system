@@ -6,11 +6,24 @@ import { DynamoDBDocumentClient, PutCommand, GetCommand, QueryCommand, ScanComma
 import { config } from "./config.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const localFile = path.join(__dirname, "../data/local-db.json");
+const localDir = path.join(__dirname, "../data");
+const localFile = path.join(localDir, "local-db.json");
 
 const emptyDb = { users: [], contacts: [], alerts: [] };
 
+async function ensureLocalDb() {
+  await fs.mkdir(localDir, { recursive: true });
+
+  try {
+    await fs.access(localFile);
+  } catch {
+    await fs.writeFile(localFile, JSON.stringify(emptyDb, null, 2));
+  }
+}
+
 async function localRead() {
+  await ensureLocalDb();
+
   try {
     return JSON.parse(await fs.readFile(localFile, "utf8"));
   } catch {
@@ -18,10 +31,11 @@ async function localRead() {
     return structuredClone(emptyDb);
   }
 }
+
 async function localWrite(db) {
+  await ensureLocalDb();
   await fs.writeFile(localFile, JSON.stringify(db, null, 2));
 }
-
 const dynamo = config.useAws
   ? DynamoDBDocumentClient.from(new DynamoDBClient({ region: config.awsRegion }))
   : null;
